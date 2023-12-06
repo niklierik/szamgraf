@@ -15,8 +15,19 @@ import {
     CylinderGeometry,
     RepeatWrapping,
     ConeGeometry,
-    Group
+    Group,
+    Vector3,
+    SphereGeometry,
+    MeshBasicMaterial,
+    BoxGeometry,
+    MeshStandardMaterial
 } from 'three';
+
+const forestSize = 100;
+
+const frenchArmySize = 100;
+
+const enemyArmySize = 500;
 
 const scene = new Scene();
 const renderer = new WebGLRenderer({
@@ -89,28 +100,39 @@ async function loadTextures(directory, wrapS, wrapT, repeatX, repeatY) {
 }
 
 async function loadAllTextures() {
-    const snowTextures = await loadTextures(
-        'assets/texture/snow',
-        RepeatWrapping,
-        RepeatWrapping,
-        10,
-        10
-    );
-    const woodTextures = await loadTextures(
-        'assets/texture/wood',
-        RepeatWrapping,
-        RepeatWrapping,
-        1,
-        5
-    );
-    const leavesTextures = await loadTextures(
-        'assets/texture/leaves',
-        RepeatWrapping,
-        RepeatWrapping,
-        1,
-        5
-    );
-    return { snowTextures, woodTextures, leavesTextures };
+    const result = await Promise.allSettled([
+        loadTextures(
+            'assets/texture/snow',
+            RepeatWrapping,
+            RepeatWrapping,
+            10,
+            10
+        ),
+        loadTextures(
+            'assets/texture/wood',
+            RepeatWrapping,
+            RepeatWrapping,
+            1,
+            5
+        ),
+        loadTextures(
+            'assets/texture/leaves',
+            RepeatWrapping,
+            RepeatWrapping,
+            1,
+            5
+        ),
+        loadTextures(
+            'assets/texture/iron',
+            RepeatWrapping,
+            RepeatWrapping,
+            10,
+            10
+        )
+    ]);
+    const [snowTextures, woodTextures, leavesTextures, ironTextures] =
+        result.map(res => (res.status === 'fulfilled' ? res.value : undefined));
+    return { snowTextures, woodTextures, leavesTextures, ironTextures };
 }
 
 /**
@@ -197,8 +219,265 @@ function createTree({
     return treeGroup;
 }
 
+/**
+ *
+ * @param {Vector3} center
+ * @param {number} radius
+ * @param {number} amount
+ * @param {(position: Vector3) => void} plant
+ */
+function randomizeSphereArea(center, radius, amount, plant) {
+    for (let i = 0; i < amount; i++) {
+        // get coord from unit circle
+        const theta = Math.random();
+
+        const ux = Math.cos(theta * 2 * Math.PI);
+        const uy = Math.sin(theta * 2 * Math.PI);
+
+        // get radius
+        const r = Math.random() * radius;
+
+        // multiply unit circle position with radius, creating the offset
+        const ox = ux * r;
+        const oy = uy * r;
+
+        // get x and z
+        const x = ox + center.x;
+        const z = oy + center.z;
+
+        // apply function to the random coordinate
+        plant(new Vector3(x, center.y, z));
+    }
+}
+
+/**
+ *
+ * @param {Vector3} min
+ * @param {Vector3} max
+ * @param {number} amount
+ * @param {(position: Vector3) => void} plant
+ */
+function randomizeBoxArea(min, max, amount, plant) {
+    const minX = Math.min(min.x, max.x);
+    const minY = Math.min(min.y, max.y);
+    const minZ = Math.min(min.z, max.z);
+
+    const maxX = Math.max(min.x, max.x);
+    const maxY = Math.max(min.y, max.y);
+    const maxZ = Math.max(min.z, max.z);
+
+    for (let i = 0; i < amount; i++) {
+        const x = randomInRange(minX, maxX);
+        const y = randomInRange(minY, maxY);
+        const z = randomInRange(minZ, maxZ);
+
+        plant(new Vector3(x, y, z));
+    }
+}
+
+function randomInRange(min, max) {
+    return lerp(Math.random(), min, max);
+}
+
+function plantTree(position, textures) {
+    const minHeight = 5;
+    const maxHeight = 20;
+
+    const minRadius = 0.1;
+    const maxRadius = 0.5;
+
+    const minLeafRadius = 3;
+    const maxLeafRadius = 5;
+
+    const minLeafSegments = 2;
+    const maxLeafSegments = 3;
+
+    const minLeafHeight = 2;
+    const maxLeafHeight = 5;
+
+    const height = randomInRange(minHeight, maxHeight);
+    const radius = randomInRange(minRadius, maxRadius);
+
+    const leafRadius = randomInRange(minLeafRadius, maxLeafRadius);
+    const leafHeight = randomInRange(minLeafHeight, maxLeafHeight);
+    const numberOfLeafComponents =
+        (height / 5) * randomInRange(minLeafSegments, maxLeafSegments);
+
+    const tree = createTree({
+        textures,
+        height,
+        radius,
+        leafRadius,
+        numberOfLeafComponents,
+        leafHeight
+    });
+    tree.position.set(position.x, 0, position.z);
+    scene.add(tree);
+}
+
+const cylinderGeometry = new CylinderGeometry();
+const sphereGeometry = new SphereGeometry();
+
+function createMan(clothColor) {
+    const manGroup = new Group();
+
+    const headMaterial = new MeshBasicMaterial({ color: 0xffedd4 });
+    const bodyMaterial = new MeshBasicMaterial({ color: clothColor });
+
+    const body = new Mesh(cylinderGeometry, bodyMaterial);
+    const arm1 = new Mesh(cylinderGeometry, bodyMaterial);
+    const arm2 = new Mesh(cylinderGeometry, bodyMaterial);
+    const head = new Mesh(sphereGeometry, headMaterial);
+
+    arm1.position.set(0.2, 0.6, 0);
+    arm1.rotation.set(0, 0, Math.PI / 4);
+    arm1.scale.set(0.05, 0.3, 0.05);
+
+    arm2.position.set(-0.2, 0.6, 0);
+    arm2.rotation.set(0, 0, -Math.PI / 4);
+    arm2.scale.set(0.05, 0.3, 0.05);
+
+    body.scale.set(0.1, 1.2, 0.1);
+    body.position.set(0, 0.6, 0);
+
+    head.position.set(0, 1, 0);
+    head.scale.set(0.2, 0.2, 0.2);
+
+    manGroup.add(body);
+    manGroup.add(head);
+    manGroup.add(arm1);
+    manGroup.add(arm2);
+
+    return manGroup;
+}
+
+function spawnMan(position, clothColor) {
+    const man = createMan(clothColor);
+    man.position.set(position.x, position.y, position.z);
+    scene.add(man);
+}
+
+function createTent() {
+    const tentGroup = new Group();
+
+    const material = new MeshPhongMaterial({ color: 0x004a0f });
+    const triangleCylinder = new CylinderGeometry(1, 1, 5, 3);
+
+    const triangleMesh = new Mesh(triangleCylinder, material);
+    triangleMesh.position.set(0, 0.5, 0);
+    triangleMesh.rotation.set(-Math.PI / 2, 0, 0);
+
+    const boxGeometry = new BoxGeometry();
+    const boxMaterial = new MeshPhongMaterial({ color: 0x402400 });
+
+    const boxMesh1 = new Mesh(boxGeometry, boxMaterial);
+    const boxMesh2 = new Mesh(boxGeometry, boxMaterial);
+    const boxMesh3 = new Mesh(boxGeometry, boxMaterial);
+    const boxMesh4 = new Mesh(boxGeometry, boxMaterial);
+    const boxMesh5 = new Mesh(boxGeometry, boxMaterial);
+    const boxMesh6 = new Mesh(boxGeometry, boxMaterial);
+
+    boxMesh1.position.set(1, 0.5, 2);
+    boxMesh1.rotation.set(0, 0, Math.PI / 3);
+    boxMesh1.scale.set(0.1, 2, 0.1);
+
+    boxMesh2.position.set(-1, 0.5, 2);
+    boxMesh2.rotation.set(0, 0, -Math.PI / 3);
+    boxMesh2.scale.set(0.1, 2, 0.1);
+
+    boxMesh3.position.set(1, 0.5, -2);
+    boxMesh3.rotation.set(0, 0, Math.PI / 3);
+    boxMesh3.scale.set(0.1, 2, 0.1);
+
+    boxMesh4.position.set(-1, 0.5, -2);
+    boxMesh4.rotation.set(0, 0, -Math.PI / 3);
+    boxMesh4.scale.set(0.1, 2, 0.1);
+
+    boxMesh5.position.set(0, 0.3, -2.8);
+    boxMesh5.rotation.set(Math.PI / 9, 0, 0);
+    boxMesh5.scale.set(0.1, 2.2, 0.1);
+
+    boxMesh6.position.set(0, 0.3, 2.8);
+    boxMesh6.rotation.set(-Math.PI / 9, 0, 0);
+    boxMesh6.scale.set(0.1, 2.2, 0.1);
+
+    tentGroup.add(triangleMesh);
+    tentGroup.add(boxMesh1);
+    tentGroup.add(boxMesh2);
+    tentGroup.add(boxMesh3);
+    tentGroup.add(boxMesh4);
+    tentGroup.add(boxMesh5);
+    tentGroup.add(boxMesh6);
+
+    return tentGroup;
+}
+
+/**
+ *
+ * @param {string} path
+ * @returns {Promise<Group>}
+ */
+async function loadObj(path) {
+    return new Promise((resolve, reject) => {
+        try {
+            objLoader.load(
+                path,
+                mesh => resolve(mesh),
+                () => {},
+                err => reject(err)
+            );
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+/**
+ *
+ * @param {*} textures
+ * @returns
+ */
+async function loadCanonGeometry(textures) {
+    const material = new MeshPhongMaterial({
+        map: textures.ironTextures.color,
+        aoMap: textures.ironTextures.ao,
+        normalMap: textures.ironTextures.normal
+    });
+
+    const group = await loadObj('assets/models/canon/canon.obj');
+    group.traverse(child => {
+        if (child instanceof Mesh) {
+            child.material = material;
+        }
+        child.castShadow = true;
+        child.receiveShadow = true;
+    });
+    return group;
+}
+
+/**
+ *
+ * @param {Group} baseCanon
+ * @returns {Group}
+ */
+function createCanon(baseCanon) {
+    const mesh = new MeshStandardMaterial({
+        color: 0xbbbbbb,
+        metalness: 0.9,
+        roughness: 0
+    });
+
+    const canonMesh = baseCanon.clone();
+    canonMesh.scale.set(0.1, 0.1, 0.1);
+    canonMesh.rotation.set(0, Math.PI, 0);
+
+    return canonMesh;
+}
+
 async function init() {
     const textures = await loadAllTextures();
+
+    const baseCanon = await loadCanonGeometry(textures);
 
     renderer.shadowMap.enabled = true;
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -228,15 +507,42 @@ async function init() {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    const tree = createTree({
-        textures,
-        height: 10,
-        radius: 0.2,
-        leafRadius: 5,
-        numberOfLeafComponents: 3,
-        leafHeight: 5
-    });
-    scene.add(tree);
+    randomizeBoxArea(
+        new Vector3(-50, 0, -50),
+        new Vector3(50, 0, -20),
+        forestSize,
+        pos => plantTree(pos, textures)
+    );
+
+    randomizeBoxArea(
+        new Vector3(-20, 0, -15),
+        new Vector3(20, 0, -10),
+        frenchArmySize,
+        pos => spawnMan(pos, 0x00087d)
+    );
+
+    randomizeBoxArea(
+        new Vector3(30, 0, 10),
+        new Vector3(-30, 0, 30),
+        enemyArmySize,
+        pos => spawnMan(pos, 0x4a4947)
+    );
+
+    const tent = createTent();
+    tent.position.set(-20, 0, -10);
+    tent.rotation.set(0, Math.PI / 3, 0);
+    scene.add(tent);
+
+    randomizeBoxArea(
+        new Vector3(-10, 0, -10),
+        new Vector3(20, 0, -5),
+        10,
+        pos => {
+            const canon = createCanon(baseCanon);
+            canon.position.set(pos.x, 0, pos.z);
+            scene.add(canon);
+        }
+    );
 
     const ambientLight = new AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);

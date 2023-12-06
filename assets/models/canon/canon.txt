@@ -1,6 +1,6 @@
 Ágyú:
 
-(Egyszerűség kedvéért: az ágyúcső vége ahol a lövész áll, és az eleje, ahol nem szívesen állsz c: Előre is elnézést kérek, nem vagyok ágyúszakértő, így kicsit nehéz elmagyarázni, hogy épp melyik részét is csinálom az ágyúnak :'D)
+(Egyszerűség kedvéért: az ágyúcső vége ahol a lövész áll, és az eleje, ahol a cső lyukas. Előre is elnézést kérek, nem vagyok ágyúszakértő, így kicsit nehéz elmagyarázni, hogy épp melyik részét is csinálom az ágyúnak :'D)
 
 Egy torusból indultam ki, amit elforgatva az egyik kerekét megkaptam. Ennek vertexeit kimozgattam (a geometry originját középen hagyva), és egy Mirror effekttel elkészítettem a másikat is.
 
