@@ -1,0 +1,23 @@
+Ágyú:
+
+(Egyszerűség kedvéért: az ágyúcső vége ahol a lövész áll, és az eleje, ahol nem szívesen állsz c: Előre is elnézést kérek, nem vagyok ágyúszakértő, így kicsit nehéz elmagyarázni, hogy épp melyik részét is csinálom az ágyúnak :'D)
+
+Egy torusból indultam ki, amit elforgatva az egyik kerekét megkaptam. Ennek vertexeit kimozgattam (a geometry originját középen hagyva), és egy Mirror effekttel elkészítettem a másikat is.
+
+Ezután a torus belső falából kiextrúdáltam hasábszerű testeket, mellyel elkészítettem a kerék belsejében található tartókat.
+
+Ezután egy új torusból elkezdtem készíteni az ágyú csövét, a Torust felépítő gyűrűket mozgattam és skáláztam különböző mértékkel, hogy egy ágyúcső szerű formát kapjak.
+
+Ezután az ágyúcső utolsó gyűrűjéből összeálló vertexeket egy felületté alakítottam, és az extrudálás+zsugorítás kombinációt ismételtem, hogy egy domborúszerű formát kapjak.
+
+Ezután további extrudálással elkészítettem a kis pöcköt, aminek a végére pedig egy új gömböt raktam.
+
+Ezután egy kockából kiindulva elkezdtem az ágyú maradék részét (a tartóállvány szerűséget) elkészíteni. Először is félbevágtam a Cut toollal (Ctrl+R) és kitöröltem az egyik oldalát, majd ezt Mirror effecttel varázsoltam vissza.
+
+Kihúztam a kocka (vagy így már inkább hasáb) oldalát a kerekekig, ezzel összekötve a két kereket, és lezsugorítottam a végét, illetve extrudáltam és még tovább zsugorítottam a végét.
+
+Az eredeti kocka felületét hátrafele elkezdtem extrudálni, ebből elkészítettem az ágyú földrelógó állványát, illetve egy kicsit a cső felé is extrudáltam, mint a "csőt tartó" részt megcsináltam.
+
+Ezután a lelógó részből felfele is extrúdáltam, az ágyúcső hátulját tartó részt megcsinálva ezzel. Illetve az oldalából is extrúdáltam, amivel a két kereket összekötő deszkához csináltam tartót.
+
+Ezután még a keréken apply-oltam a mirror effectet és bemozgattam az objektum közepét a két kerék közé, így forgatva az objektumot a kerék is forog.
