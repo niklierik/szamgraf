@@ -20,7 +20,8 @@ import {
     SphereGeometry,
     MeshBasicMaterial,
     BoxGeometry,
-    MeshStandardMaterial
+    MeshStandardMaterial,
+    CubeTextureLoader
 } from 'three';
 
 const forestSize = 100;
@@ -63,6 +64,40 @@ window.addEventListener(
  * @type {Object3D[]}
  */
 const trees = [];
+
+/**
+ * @type {{day; night}}
+ */
+let skyboxTextures;
+
+let _day = true;
+
+function toDay() {
+    _day = true;
+    scene.background = skyboxTextures.day;
+}
+
+function toNight() {
+    _day = false;
+    scene.background = skyboxTextures.night;
+}
+
+function toggleDayNight() {
+    if (isDay()) {
+        toNight();
+        return;
+    }
+
+    toDay();
+}
+
+function isDay() {
+    return _day;
+}
+
+function isNight() {
+    return !_day;
+}
 
 /**
  *
@@ -226,6 +261,7 @@ function createTree({
  * @param {number} amount
  * @param {(position: Vector3) => void} plant
  */
+// eslint-disable-next-line no-unused-vars
 function randomizeSphereArea(center, radius, amount, plant) {
     for (let i = 0; i < amount; i++) {
         // get coord from unit circle
@@ -461,12 +497,6 @@ async function loadCanonGeometry(textures) {
  * @returns {Group}
  */
 function createCanon(baseCanon) {
-    const mesh = new MeshStandardMaterial({
-        color: 0xbbbbbb,
-        metalness: 0.9,
-        roughness: 0
-    });
-
     const canonMesh = baseCanon.clone();
     canonMesh.scale.set(0.1, 0.1, 0.1);
     canonMesh.rotation.set(0, Math.PI, 0);
@@ -474,8 +504,38 @@ function createCanon(baseCanon) {
     return canonMesh;
 }
 
+/**
+ *
+ * @param {string} mainPath
+ */
+async function loadSkybox(mainPath) {
+    const cubeTextureLoader = new CubeTextureLoader();
+
+    const directions = ['front', 'back', 'up', 'down', 'left', 'right'];
+
+    const paths = directions.map(dir => mainPath + '/' + dir + '.png');
+
+    const textures = await cubeTextureLoader.loadAsync(paths);
+    return textures;
+}
+
+async function loadSkyboxes() {
+    const results = await Promise.allSettled([
+        loadSkybox('assets/texture/skybox/day'),
+        loadSkybox('assets/texture/skybox/night')
+    ]);
+
+    const [day, night] = results.map(res =>
+        res.status === 'fulfilled' ? res.value : undefined
+    );
+
+    return { day, night };
+}
+
 async function init() {
     const textures = await loadAllTextures();
+
+    skyboxTextures = await loadSkyboxes();
 
     const baseCanon = await loadCanonGeometry(textures);
 
@@ -549,6 +609,9 @@ async function init() {
 
     const axesHelper = new AxesHelper(10);
     scene.add(axesHelper);
+
+    toDay();
+
     animate();
 }
 
