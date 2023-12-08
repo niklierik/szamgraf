@@ -20,9 +20,13 @@ import {
     SphereGeometry,
     MeshBasicMaterial,
     BoxGeometry,
-    MeshStandardMaterial,
-    CubeTextureLoader
+    CubeTextureLoader,
+    AudioLoader,
+    AudioListener,
+    Audio
 } from 'three';
+
+let firingCanons = false;
 
 const forestSize = 100;
 
@@ -48,6 +52,14 @@ const textureLoader = new TextureLoader();
 
 const objLoader = new OBJLoader();
 
+const audioListener = new AudioListener();
+
+const canonSound = new Audio(audioListener);
+
+const audioLoader = new AudioLoader();
+
+let enemiesKilled = false;
+
 window.addEventListener(
     'resize',
     () => {
@@ -60,26 +72,53 @@ window.addEventListener(
     false
 );
 
+window.addEventListener(
+    'keydown',
+    event => {
+        switch (event.key) {
+            case 'q':
+                toggleDayNight();
+                return;
+            case ' ':
+                fireCanons().catch(console.error);
+                return;
+        }
+    },
+    false
+);
+
 /**
- * @type {Object3D[]}
+ * @type {Group[]}
  */
 const trees = [];
+
+/**
+ * @type {Group[]}
+ */
+const enemies = [];
 
 /**
  * @type {{day; night}}
  */
 let skyboxTextures;
 
+/**
+ * @type {AmbientLight}
+ */
+let ambientLight;
+
 let _day = true;
 
 function toDay() {
     _day = true;
     scene.background = skyboxTextures.day;
+    ambientLight.intensity = 0.8;
 }
 
 function toNight() {
     _day = false;
     scene.background = skyboxTextures.night;
+    ambientLight.intensity = 0.1;
 }
 
 function toggleDayNight() {
@@ -95,8 +134,33 @@ function isDay() {
     return _day;
 }
 
+// eslint-disable-next-line no-unused-vars
 function isNight() {
     return !_day;
+}
+
+async function fireCanons() {
+    try {
+        if (firingCanons) {
+            return;
+        }
+
+        firingCanons = true;
+
+        canonSound.play();
+
+        await sleep(canonSound);
+
+        enemiesKilled = true;
+    } catch (e) {
+        console.error(e);
+    } finally {
+        firingCanons = false;
+    }
+}
+
+async function sleep(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
 /**
@@ -357,12 +421,18 @@ const sphereGeometry = new SphereGeometry();
 function createMan(clothColor) {
     const manGroup = new Group();
 
-    const headMaterial = new MeshBasicMaterial({ color: 0xffedd4 });
-    const bodyMaterial = new MeshBasicMaterial({ color: clothColor });
+    const headMaterial = new MeshBasicMaterial({
+        color: 0xffedd4,
+        shininess: 0.2
+    });
+    const clothMaterial = new MeshBasicMaterial({
+        color: clothColor,
+        shininess: 0.2
+    });
 
-    const body = new Mesh(cylinderGeometry, bodyMaterial);
-    const arm1 = new Mesh(cylinderGeometry, bodyMaterial);
-    const arm2 = new Mesh(cylinderGeometry, bodyMaterial);
+    const body = new Mesh(cylinderGeometry, clothMaterial);
+    const arm1 = new Mesh(cylinderGeometry, clothMaterial);
+    const arm2 = new Mesh(cylinderGeometry, clothMaterial);
     const head = new Mesh(sphereGeometry, headMaterial);
 
     arm1.position.set(0.2, 0.6, 0);
@@ -379,6 +449,18 @@ function createMan(clothColor) {
     head.position.set(0, 1, 0);
     head.scale.set(0.2, 0.2, 0.2);
 
+    head.castShadow = true;
+    head.receiveShadow = true;
+
+    body.castShadow = true;
+    body.receiveShadow = true;
+
+    arm1.castShadow = true;
+    arm1.receiveShadow = true;
+
+    arm2.castShadow = true;
+    arm2.receiveShadow = true;
+
     manGroup.add(body);
     manGroup.add(head);
     manGroup.add(arm1);
@@ -391,12 +473,16 @@ function spawnMan(position, clothColor) {
     const man = createMan(clothColor);
     man.position.set(position.x, position.y, position.z);
     scene.add(man);
+    return man;
 }
 
 function createTent() {
     const tentGroup = new Group();
 
-    const material = new MeshPhongMaterial({ color: 0x004a0f });
+    const material = new MeshPhongMaterial({
+        color: 0x004a0f,
+        shininess: 0.2
+    });
     const triangleCylinder = new CylinderGeometry(1, 1, 5, 3);
 
     const triangleMesh = new Mesh(triangleCylinder, material);
@@ -404,7 +490,10 @@ function createTent() {
     triangleMesh.rotation.set(-Math.PI / 2, 0, 0);
 
     const boxGeometry = new BoxGeometry();
-    const boxMaterial = new MeshPhongMaterial({ color: 0x402400 });
+    const boxMaterial = new MeshPhongMaterial({
+        color: 0x402400,
+        shininess: 0.2
+    });
 
     const boxMesh1 = new Mesh(boxGeometry, boxMaterial);
     const boxMesh2 = new Mesh(boxGeometry, boxMaterial);
@@ -436,6 +525,19 @@ function createTent() {
     boxMesh6.position.set(0, 0.3, 2.8);
     boxMesh6.rotation.set(-Math.PI / 9, 0, 0);
     boxMesh6.scale.set(0.1, 2.2, 0.1);
+
+    [
+        triangleMesh,
+        boxMesh1,
+        boxMesh2,
+        boxMesh3,
+        boxMesh4,
+        boxMesh5,
+        boxMesh6
+    ].forEach(mesh => {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+    });
 
     tentGroup.add(triangleMesh);
     tentGroup.add(boxMesh1);
@@ -488,6 +590,10 @@ async function loadCanonGeometry(textures) {
         child.castShadow = true;
         child.receiveShadow = true;
     });
+
+    group.castShadow = true;
+    group.receiveShadow = true;
+
     return group;
 }
 
@@ -532,19 +638,27 @@ async function loadSkyboxes() {
     return { day, night };
 }
 
+async function loadAudio() {
+    const audioBuffer = await audioLoader.loadAsync('assets/sound/canon.mp3');
+    canonSound.setBuffer(audioBuffer);
+    canonSound.setVolume(0.5);
+}
+
 async function init() {
     const textures = await loadAllTextures();
-
     skyboxTextures = await loadSkyboxes();
 
     const baseCanon = await loadCanonGeometry(textures);
+
+    await loadAudio();
 
     renderer.shadowMap.enabled = true;
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    camera.position.set(4, 4, 4);
+    camera.position.set(-10, 10, 0);
     camera.lookAt(scene.position);
+    camera.add(audioListener);
 
     controls.rotateSpeec = 5.0;
     controls.panSpeed = 1.0;
@@ -585,7 +699,9 @@ async function init() {
         new Vector3(30, 0, 10),
         new Vector3(-30, 0, 30),
         enemyArmySize,
-        pos => spawnMan(pos, 0x4a4947)
+        pos => {
+            enemies.push(spawnMan(pos, 0x4a4947));
+        }
     );
 
     const tent = createTent();
@@ -593,18 +709,14 @@ async function init() {
     tent.rotation.set(0, Math.PI / 3, 0);
     scene.add(tent);
 
-    randomizeBoxArea(
-        new Vector3(-10, 0, -10),
-        new Vector3(20, 0, -5),
-        10,
-        pos => {
-            const canon = createCanon(baseCanon);
-            canon.position.set(pos.x, 0, pos.z);
-            scene.add(canon);
-        }
-    );
+    for (let x = -15; x <= 15; x += 3) {
+        const pos = new Vector3(x, 0, -5 + (Math.random() - 0.5));
+        const canon = createCanon(baseCanon);
+        canon.position.set(pos.x, 0, pos.z);
+        scene.add(canon);
+    }
 
-    const ambientLight = new AmbientLight(0xffffff, 0.5);
+    ambientLight = new AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     const axesHelper = new AxesHelper(10);
@@ -615,10 +727,54 @@ async function init() {
     animate();
 }
 
+/**
+ * @type {Record<number, string>}
+ */
+const enmeyRotationKeys = {};
+
+/**
+ *
+ * @param {number} i
+ */
+function getEnemyKeyOf(i) {
+    let key = enmeyRotationKeys[i];
+
+    if (key) {
+        return key;
+    }
+
+    const keys = ['x', 'z'];
+
+    key = keys[Math.round(Math.random())];
+
+    enmeyRotationKeys[i] = key;
+
+    return key;
+}
+
+let activeCounter = 0;
+
 function animate() {
     requestAnimationFrame(animate);
 
     controls.update();
+
+    if (enemiesKilled) {
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
+            const key = getEnemyKeyOf(i);
+
+            if (Math.abs(enemy.rotation[key]) <= Math.PI / 2) {
+                enemy.rotation[key] += randomInRange(0.001, 0.2);
+            }
+        }
+    }
+
+    activeCounter += Math.random() * 0.05;
+
+    for (const tree of trees) {
+        tree.rotation.z = Math.sin(activeCounter) * 0.05 + 0.05;
+    }
 
     render();
 }
